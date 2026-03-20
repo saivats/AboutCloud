@@ -37,8 +37,11 @@ Implement real anomaly detection and explanation logic on top of the existing in
 	- Include safe defaults for cloud metrics (CPU, memory, disk, network).
 
 5. **Verification**
-	- Add a `verify_phase3.py` test script:
+	- Add a `benchmark_phase3.py` benchmark script as the single centralized test runner:
+	  - Cover Phase 1 contract validation.
+	  - Cover Phase 2 ingestion + storage validation.
 	  - Run simulator → ingestion → detection → aggregation.
+	  - Replay sample CSV metrics through the real pipeline.
 	  - Ensure anomalies are detected when injected.
 	- Update `test_all_features.py` to call real detection (remove mocks).
 

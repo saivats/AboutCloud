@@ -177,10 +177,8 @@ class AnomalyDetectionPipeline:
                 if node_anomalies:
                     try:
                         node_score = self.node_aggregator.aggregate(
-                            results=node_anomalies,
-                            tenant_id=tenant_id,
-                            cluster_id=cluster_id,
-                            node_id=node_id,
+                            anomaly_results=node_anomalies,
+                            timestamp=datetime.utcnow(),
                         )
                         node_aggregated_scores.append(node_score)
 
