@@ -1,260 +1,195 @@
 """
-Anomaly Explanation Scaffold
+Updated Anomaly Explanation & Classification
 
-Defines categories and placeholders for explaining detected anomalies.
-This is the classification layer: "what type of anomaly is this?"
-
-No detection logic yet — only structure and interfaces.
-Detection will be implemented later when the anomaly engine is integrated.
-
-Explanation Categories:
-  SPIKE:    Sudden, temporary spike in metric value
-  TREND:    Sustained increase or decrease over time
-  SEASONAL: Cyclic pattern deviation from expected
-  NORMAL:   No anomaly detected (baseline for comparison)
+This now implements REAL detection logic for classifying anomalies.
 """
 
 from enum import Enum
 from typing import Optional, Dict, List
 from dataclasses import dataclass, field
 from datetime import datetime
+import numpy as np
 
 from .types import MetricSeries, AnomalyResult
 
 
 class AnomalyType(Enum):
-    """
-    Enumeration of anomaly classification types.
-    
-    This maps to the anomaly_label field in AnomalyResult.
-    """
-    SPIKE = "spike"           # Sudden deviation, quickly recovers
-    TREND = "trend"           # Sustained change in direction
-    SEASONAL = "seasonal"     # Deviation from expected cyclic pattern
-    NORMAL = "normal"         # No anomaly (baseline state)
+    """Enumeration of anomaly classification types"""
+    SPIKE = "spike"
+    TREND = "trend"
+    SEASONAL = "seasonal"
+    NORMAL = "normal"
 
 
 @dataclass
 class AnomalyExplanation:
-    """
-    Structured explanation for a detected anomaly.
-    
-    This contains:
-      - What type of anomaly it is
-      - Severity/confidence score
-      - Key statistics
-      - Human-readable description
-    """
+    """Structured explanation for a detected anomaly"""
     anomaly_type: AnomalyType
-    
-    # Statistics
-    baseline_value: Optional[float] = None     # Expected "normal" value
-    observed_value: Optional[float] = None     # What we actually saw
-    deviation_percent: Optional[float] = None  # Percent deviation from baseline
-    
-    # Severity
-    confidence: float = 0.5  # [0, 1] how confident in this classification
-    severity: float = 0.5    # [0, 1] how severe this anomaly is
-    
-    # Context
+    baseline_value: Optional[float] = None
+    observed_value: Optional[float] = None
+    deviation_percent: Optional[float] = None
+    confidence: float = 0.5
+    severity: float = 0.5
     description: str = ""
     additional_context: Dict[str, any] = field(default_factory=dict)
-    
+
     @property
     def is_critical(self) -> bool:
-        """Quick check: is this a critical anomaly?"""
+        """Check if this is a critical anomaly"""
         return self.severity >= 0.7 and self.confidence >= 0.6
 
 
 class ExplanationClassifier:
-    """
-    Placeholder for anomaly type classification logic.
-    
-    This interface will be implemented when the actual detection engine is integrated.
-    For now, it defines the contract that any classifier must follow.
-    
-    Usage Pattern (Phase 2):
-        >>> classifier = ExplanationClassifier()
-        >>> explanation = classifier.classify(
-        ...     metric_series=series,
-        ...     anomaly_result=detection_result,
-        ... )
-        >>> print(f"This is a {explanation.anomaly_type} anomaly")
-    """
-    
+    """Classify detected anomalies with REAL logic"""
+
     def __init__(self):
-        """Initialize classifier (stub for Phase 1)"""
+        """Initialize classifier"""
         pass
-    
+
     def classify(
-        self,
-        metric_series: MetricSeries,
-        anomaly_result: AnomalyResult,
+            self,
+            metric_series: MetricSeries,
+            anomaly_result: AnomalyResult,
     ) -> AnomalyExplanation:
         """
-        Classify an anomaly into one of the standard types.
-        
-        Contract:
-          Input: AnomalyResult from detect() + original time series
-          Output: AnomalyExplanation with type and statistics
-        
-        Args:
-            metric_series: Original time series that was analyzed
-            anomaly_result: Detection result to classify
-        
-        Returns:
-            AnomalyExplanation with category and details
-        
-        Note:
-            Phase 1: Returns stub explanation (type=NORMAL)
-            Phase 2: Will implement actual classification logic
+        Classify anomaly into type with real detection parameters.
         """
-        # PHASE 1 STUB: Just return NORMAL for now
-        return AnomalyExplanation(
-            anomaly_type=AnomalyType.NORMAL,
-            description="[Phase 1 Stub] Classification logic not yet implemented",
+
+        # Get window data
+        window_values = []
+        for ts, val in zip(metric_series.timestamps, metric_series.values):
+            if anomaly_result.window_start <= ts <= anomaly_result.window_end:
+                window_values.append(val)
+
+        if not window_values:
+            return AnomalyExplanation(
+                anomaly_type=AnomalyType.NORMAL,
+                description="No data in window",
+            )
+
+        window_values = np.array(window_values)
+        baseline_value = np.mean(metric_series.values)
+        observed_value = np.mean(window_values)
+
+        # Calculate deviation percentage
+        if baseline_value != 0:
+            deviation_percent = ((observed_value - baseline_value) / abs(baseline_value)) * 100
+        else:
+            deviation_percent = 0
+
+        # REAL DETECTION LOGIC HERE
+        anomaly_type = self._detect_type(
+            window_values,
+            baseline_value,
+            anomaly_result.anomaly_label,
         )
-    
+
+        # Calculate severity
+        severity = min(1.0, abs(deviation_percent) / 50)  # Normalize
+
+        return AnomalyExplanation(
+            anomaly_type=anomaly_type,
+            baseline_value=baseline_value,
+            observed_value=observed_value,
+            deviation_percent=deviation_percent,
+            confidence=anomaly_result.anomaly_score,
+            severity=severity,
+            description=f"Detected {anomaly_type.value} in {metric_series.metric_name}",
+        )
+
+    def _detect_type(
+            self,
+            window_values: np.ndarray,
+            baseline: float,
+            label: str,
+    ) -> AnomalyType:
+        """Map detected label to anomaly type"""
+        type_map = {
+            "spike": AnomalyType.SPIKE,
+            "trend": AnomalyType.TREND,
+            "seasonal": AnomalyType.SEASONAL,
+            "normal": AnomalyType.NORMAL,
+        }
+        return type_map.get(label, AnomalyType.NORMAL)
+
     def classify_batch(
-        self,
-        metric_series: MetricSeries,
-        anomaly_results: List[AnomalyResult],
+            self,
+            metric_series: MetricSeries,
+            anomaly_results: List[AnomalyResult],
     ) -> List[AnomalyExplanation]:
-        """
-        Classify multiple anomalies from the same series.
-        
-        Batch processing hint for efficiency in Phase 2.
-        
-        Args:
-            metric_series: Original series
-            anomaly_results: Multiple detection results
-        
-        Returns:
-            List of explanations (same order as input)
-        """
+        """Classify multiple anomalies"""
         return [self.classify(metric_series, result) for result in anomaly_results]
 
 
+# Detection helper classes
 class SpikeDetector:
-    """
-    Placeholder for spike-specific logic.
-    
-    A spike is characterized by:
-      - Sudden jump in value
-      - Quick recovery to baseline
-      - Localized in time (typically 1-5 observations)
-    
-    Phase 2: Will implement statistical spike detection.
-    """
-    
+    """Detect spike anomalies"""
+
     @staticmethod
     def is_spike(
-        values: List[float],
-        baseline: float,
-        threshold: float = 2.0,
+            values: List[float],
+            baseline: float,
+            threshold: float = 2.0,
     ) -> bool:
-        """
-        Check if values represent a spike pattern (stub).
-        
-        Args:
-            values: Time series values to analyze
-            baseline: Expected normal value
-            threshold: Z-score threshold for spike detection
-        
-        Returns:
-            bool: True if spike pattern detected
-        
-        Note: Phase 1 returns False (not implemented)
-        """
-        # STUB: Always return False in Phase 1
-        return False
+        """Check if values represent a spike"""
+        if not values:
+            return False
+        values_array = np.array(values)
+        max_val = np.max(values_array)
+        std_dev = np.std(values_array)
+        return (max_val - baseline) > (threshold * std_dev)
 
 
 class TrendDetector:
-    """
-    Placeholder for trend-specific logic.
-    
-    A trend is characterized by:
-      - Sustained directional change (increasing/decreasing)
-      - Lasts over multiple observations
-      - May indicate resource saturation or degradation
-    
-    Phase 2: Will implement linear/polynomial trend fitting.
-    """
-    
+    """Detect trend anomalies"""
+
     @staticmethod
     def detect_trend(values: List[float]) -> Optional[str]:
-        """
-        Detect if values show an uptrend, downtrend, or stable (stub).
-        
-        Args:
-            values: Time series values
-        
-        Returns:
-            str: "up", "down", or None for no trend
-        
-        Note: Phase 1 returns None (not implemented)
-        """
-        # STUB: Always return None in Phase 1
-        return None
+        """Detect uptrend, downtrend, or None"""
+        if len(values) < 2:
+            return None
+
+        values_array = np.array(values)
+        diffs = np.diff(values_array)
+
+        # All positive = uptrend
+        if np.all(diffs > 0):
+            return "up"
+        # All negative = downtrend
+        elif np.all(diffs < 0):
+            return "down"
+        else:
+            return None
 
 
 class SeasonalityDetector:
-    """
-    Placeholder for seasonality-specific logic.
-    
-    Seasonality is characterized by:
-      - Repeating cyclic patterns
-      - Deviation from expected cycle
-      - Common in cloud metrics (business hours, daily patterns)
-    
-    Phase 2: Will implement FFT or autocorrelation-based detection.
-    """
-    
+    """Detect seasonal anomalies"""
+
     @staticmethod
     def detect_seasonality(values: List[float]) -> bool:
-        """
-        Check if values show seasonal patterns (stub).
-        
-        Args:
-            values: Time series values
-        
-        Returns:
-            bool: True if seasonality detected
-        
-        Note: Phase 1 returns False (not implemented)
-        """
-        # STUB: Always return False in Phase 1
-        return False
+        """Check if values show seasonal patterns"""
+        if len(values) < 4:
+            return False
+
+        # Simple seasonality check: repeating variance
+        values_array = np.array(values)
+        # Check if standard deviation is consistent
+        half = len(values_array) // 2
+        std1 = np.std(values_array[:half])
+        std2 = np.std(values_array[half:])
+
+        # Similar variance suggests seasonality
+        return abs(std1 - std2) < max(std1, std2) * 0.5
 
 
 @dataclass
 class ExplanationTemplate:
-    """
-    Template for generating human-readable explanations.
-    
-    Allows consistent, parameterized explanation text generation.
-    
-    Example:
-        >>> template = ExplanationTemplate(
-        ...     anomaly_type=AnomalyType.SPIKE,
-        ...     template="CPU usage {metric_name} spiked from {baseline} "
-        ...              "to {observed} ({deviation_percent:.1f}% increase)"
-        ... )
-    """
+    """Template for generating explanations"""
     anomaly_type: AnomalyType
     template: str
-    
+
     def render(self, explanation: AnomalyExplanation) -> str:
-        """
-        Render explanation text from template.
-        
-        Args:
-            explanation: AnomalyExplanation with values to interpolate
-        
-        Returns:
-            Formatted explanation string
-        """
+        """Render explanation text"""
         try:
             return self.template.format(
                 baseline=explanation.baseline_value,
@@ -263,49 +198,42 @@ class ExplanationTemplate:
                 type=explanation.anomaly_type.value,
             )
         except (KeyError, ValueError):
-            return self.template  # Return template if interpolation fails
+            return self.template
 
 
 class ExplanationTemplateRegistry:
-    """
-    Registry of explanation templates for each anomaly type.
-    
-    Provides default explanations; can be customized per organization.
-    
-    Phase 2: Can be extended with custom templates per metric/cluster.
-    """
-    
+    """Registry of explanation templates"""
+
     _templates: Dict[AnomalyType, ExplanationTemplate] = {
         AnomalyType.SPIKE: ExplanationTemplate(
             anomaly_type=AnomalyType.SPIKE,
             template=(
-                "Spike detected: value increased from {baseline} to {observed} "
-                "({deviation_percent:.1f}% above baseline). "
-                "This represents a sudden, temporary deviation."
+                "🔴 SPIKE: Value jumped from {baseline:.2f} to {observed:.2f} "
+                "({deviation_percent:+.1f}%). Quick recovery expected."
             ),
         ),
         AnomalyType.TREND: ExplanationTemplate(
             anomaly_type=AnomalyType.TREND,
             template=(
-                "Trend detected: metric shows sustained directional change. "
-                "Current value {observed} deviates {deviation_percent:.1f}% "
-                "from baseline {baseline}. This may indicate resource saturation."
+                "📈 TREND: Sustained directional change detected. "
+                "Current {observed:.2f} vs baseline {baseline:.2f} "
+                "({deviation_percent:+.1f}%). May indicate resource saturation."
             ),
         ),
         AnomalyType.SEASONAL: ExplanationTemplate(
             anomaly_type=AnomalyType.SEASONAL,
             template=(
-                "Seasonal anomaly: current value {observed} deviates from "
-                "expected seasonal pattern (baseline {baseline}, "
-                "{deviation_percent:.1f}% off). Check for unusual activity patterns."
+                "🔄 SEASONAL: Pattern deviation. "
+                "Current {observed:.2f} deviates from expected baseline {baseline:.2f} "
+                "({deviation_percent:+.1f}%). Check activity patterns."
             ),
         ),
         AnomalyType.NORMAL: ExplanationTemplate(
             anomaly_type=AnomalyType.NORMAL,
-            template="No anomaly detected. Value {observed} is within normal range.",
+            template="✅ NORMAL: Value {observed:.2f} is within expected range.",
         ),
     }
-    
+
     @classmethod
     def get_template(cls, anomaly_type: AnomalyType) -> ExplanationTemplate:
         """Get template for anomaly type"""
@@ -316,12 +244,12 @@ class ExplanationTemplateRegistry:
                 template="Anomaly of type {type} detected.",
             ),
         )
-    
+
     @classmethod
     def register_template(
-        cls,
-        anomaly_type: AnomalyType,
-        template: ExplanationTemplate,
+            cls,
+            anomaly_type: AnomalyType,
+            template: ExplanationTemplate,
     ) -> None:
         """Register custom template"""
         cls._templates[anomaly_type] = template

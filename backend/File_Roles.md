@@ -3,9 +3,7 @@
 ### Root
 - [backend_README.md](../backend_README.md): Centralized project documentation (Phase 1 + 2).
 - [PHASE2_SUMMARY.md](../PHASE2_SUMMARY.md): Phase 2 summary.
-- [verify_phase1.py](../verify_phase1.py): Phase 1 validation suite.
-- [verify_phase2.py](../verify_phase2.py): Phase 2 end-to-end validation.
-- [test_all_features.py](../test_all_features.py): Interactive demo for current capabilities.
+- [benchmark_phase3.py](../benchmark_phase3.py): Single centralized benchmark runner for Phases 1, 2, and 3.
 
 ### Analytics module
 - [backend/analytics/__init__.py](analytics/__init__.py): Public exports for analytics.
