@@ -2,6 +2,12 @@
 Analytics Module Initialization
 
 Exposes the primary public API for analytics operations.
+
+Note: Engine implementations (MerlionAnomalyEngine, AnomalyDetectionPipeline)
+are imported lazily from their own modules to avoid circular imports with
+the storage layer:
+  from backend.analytics.merlion_engine import MerlionAnomalyEngine
+  from backend.analytics.detection_pipeline import AnomalyDetectionPipeline
 """
 
 from .types import (
@@ -38,6 +44,17 @@ from .explain import (
     ExplanationTemplateRegistry,
 )
 
+from .config import (
+    DetectionConfig,
+    get_config,
+    set_config,
+)
+
+# Note: MerlionAnomalyEngine, AnomalyDetectionPipeline, DetectionPipelineStats
+# must be imported directly from their modules to avoid circular imports:
+#   from backend.analytics.merlion_engine import MerlionAnomalyEngine
+#   from backend.analytics.detection_pipeline import AnomalyDetectionPipeline
+
 __all__ = [
     # Types
     "MetricPoint",
@@ -63,7 +80,11 @@ __all__ = [
     "AnomalyExplanation",
     "ExplanationClassifier",
     "ExplanationTemplateRegistry",
+    # Config
+    "DetectionConfig",
+    "get_config",
+    "set_config",
 ]
 
-__version__ = "0.1.0-phase1"
-__description__ = "Analytics Module - Anomaly Detection Architecture & Plumbing (Phase 1)"
+__version__ = "0.3.0-phase3"
+__description__ = "Analytics Module - Full Anomaly Detection Pipeline (Phase 3)"

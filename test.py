@@ -9,6 +9,9 @@ This is the single benchmark entrypoint for the current project. It exercises:
   3. Phase 3 controlled anomaly detection
   4. Phase 3 real CSV replay over the sample cluster
   5. Storage/query validation and aggregation timings
+  6. Persistent storage (SQLite) validation
+  7. Hot/cold tiered storage validation
+  8. API authentication and authorization validation
 
 Exit code:
   0 = benchmark passed
@@ -16,8 +19,11 @@ Exit code:
 """
 
 import argparse
+import json
 import os
 import sys
+import tempfile
+import threading
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from time import perf_counter
@@ -45,6 +51,9 @@ try:
     from backend.simulator.generator import AnomalyInjector, MetricSimulator, SimulatorConfig
     from backend.storage.interface import configure_storage
     from backend.storage.memory_storage import InMemoryStorage
+    from backend.storage.sqlite_storage import SQLiteStorage
+    from backend.storage.tiered_storage import TieredStorageBackend, TieringConfig
+    from backend.api.auth import AuthManager
 except Exception as exc:
     IMPORT_FAILURE = exc
 
@@ -452,6 +461,315 @@ def run_realworld_benchmark(config: BenchmarkConfig) -> Dict[str, float]:
     }
 
 
+def run_persistent_storage_benchmark() -> Dict[str, float]:
+    """
+    Validate SQLite persistent storage:
+      - write metrics and anomalies
+      - read them back
+      - verify overlap-based anomaly query
+      - verify data survives a fresh SQLiteStorage instance on the same file
+    """
+    db_path = os.path.join(tempfile.gettempdir(), "aboutcloud_bench.db")
+
+    # Clean previous run
+    if os.path.exists(db_path):
+        os.remove(db_path)
+
+    now = datetime.utcnow()
+    timestamps = [now + timedelta(minutes=i) for i in range(20)]
+    values = [50.0 + i for i in range(20)]
+
+    series = MetricSeries(
+        tenant_id="persist-tenant",
+        cluster_id="persist-cluster",
+        node_id="node-001",
+        metric_name="cpu_usage",
+        timestamps=timestamps,
+        values=values,
+    )
+
+    anomaly = AnomalyResult(
+        tenant_id="persist-tenant",
+        cluster_id="persist-cluster",
+        node_id="node-001",
+        metric_name="cpu_usage",
+        window_start=timestamps[5],
+        window_end=timestamps[15],
+        anomaly_score=0.85,
+        anomaly_label="spike",
+        explanation="Benchmark test spike",
+    )
+
+    agg = AggregatedAnomalyScore(
+        tenant_id="persist-tenant",
+        cluster_id="persist-cluster",
+        node_id="node-001",
+        aggregate_score=0.85,
+        num_metrics_analyzed=1,
+        num_anomalies_detected=1,
+    )
+
+    # --- Write phase ---
+    write_started = perf_counter()
+    storage = SQLiteStorage(db_path)
+    storage.store_metric(series)
+    storage.store_anomaly_result(
+        tenant_id=anomaly.tenant_id,
+        cluster_id=anomaly.cluster_id,
+        node_id=anomaly.node_id,
+        metric_name=anomaly.metric_name,
+        result=anomaly,
+    )
+    storage.store_aggregated_score(agg)
+    write_ms = _elapsed_ms(write_started)
+
+    # --- Read phase (same instance) ---
+    read_started = perf_counter()
+    retrieved = storage.get_metric_series(
+        tenant_id="persist-tenant",
+        cluster_id="persist-cluster",
+        node_id="node-001",
+        metric_name="cpu_usage",
+        start_time=timestamps[0],
+        end_time=timestamps[-1],
+    )
+    _assert(len(retrieved.values) == 20, "SQLite: retrieved metric length mismatch")
+    _assert(retrieved.values[0] == 50.0, "SQLite: first value mismatch")
+
+    queried = storage.query_anomalies(
+        tenant_id="persist-tenant",
+        cluster_id="persist-cluster",
+        start_time=timestamps[0],
+        end_time=timestamps[-1],
+        min_score=0.5,
+    )
+    _assert(len(queried) == 1, f"SQLite: expected 1 anomaly, got {len(queried)}")
+    _assert(queried[0]["anomaly_score"] == 0.85, "SQLite: anomaly score mismatch")
+
+    stats = storage.get_stats()
+    _assert(stats["total_metrics"] == 1, "SQLite: metric count mismatch")
+    _assert(stats["total_anomalies"] == 1, "SQLite: anomaly count mismatch")
+    _assert(stats["total_aggregated_scores"] == 1, "SQLite: agg score count mismatch")
+    read_ms = _elapsed_ms(read_started)
+
+    # --- Persistence check (new instance on same file) ---
+    del storage
+    persist_started = perf_counter()
+    storage2 = SQLiteStorage(db_path)
+    retrieved2 = storage2.get_metric_series(
+        tenant_id="persist-tenant",
+        cluster_id="persist-cluster",
+        node_id="node-001",
+        metric_name="cpu_usage",
+        start_time=timestamps[0],
+        end_time=timestamps[-1],
+    )
+    _assert(len(retrieved2.values) == 20, "SQLite persistence: data did not survive restart")
+
+    queried2 = storage2.query_anomalies(
+        tenant_id="persist-tenant",
+        cluster_id="persist-cluster",
+        start_time=timestamps[0],
+        end_time=timestamps[-1],
+        min_score=0.5,
+    )
+    _assert(len(queried2) == 1, "SQLite persistence: anomaly did not survive restart")
+    persist_ms = _elapsed_ms(persist_started)
+
+    # Cleanup
+    try:
+        os.remove(db_path)
+    except OSError:
+        pass
+
+    return {
+        "write_ms": write_ms,
+        "read_ms": read_ms,
+        "persist_ms": persist_ms,
+    }
+
+
+def run_hotcold_storage_benchmark() -> Dict[str, float]:
+    """
+    Validate hot/cold tiered storage:
+      - store data in hot tier
+      - run archive_old_data() without crash
+      - verify cold tier receives archived data
+      - verify queries pull from cold archive
+    """
+    tmp_dir = tempfile.mkdtemp(prefix="aboutcloud_hc_")
+    hot_db = os.path.join(tmp_dir, "hot.db")
+    cold_dir = os.path.join(tmp_dir, "cold")
+
+    config = TieringConfig(
+        hot_retention_days=0,  # Archive everything immediately
+        cold_archive_dir=cold_dir,
+    )
+    storage = TieredStorageBackend(hot_db_path=hot_db, config=config)
+
+    # Store a metric and an anomaly with old timestamps
+    old_time = datetime.utcnow() - timedelta(days=30)
+    timestamps = [old_time + timedelta(minutes=i) for i in range(20)]
+    values = [60.0 + i for i in range(20)]
+
+    series = MetricSeries(
+        tenant_id="hc-tenant",
+        cluster_id="hc-cluster",
+        node_id="node-001",
+        metric_name="cpu_usage",
+        timestamps=timestamps,
+        values=values,
+    )
+    storage.store_metric(series)
+
+    anomaly = AnomalyResult(
+        tenant_id="hc-tenant",
+        cluster_id="hc-cluster",
+        node_id="node-001",
+        metric_name="cpu_usage",
+        window_start=timestamps[2],
+        window_end=timestamps[10],
+        anomaly_score=0.90,
+        anomaly_label="trend",
+        explanation="Benchmark hot/cold test",
+    )
+    storage.store_anomaly_result(
+        tenant_id=anomaly.tenant_id,
+        cluster_id=anomaly.cluster_id,
+        node_id=anomaly.node_id,
+        metric_name=anomaly.metric_name,
+        result=anomaly,
+    )
+
+    # Verify data exists in hot tier before archival
+    hot_before = storage.hot.query_anomalies(
+        tenant_id="hc-tenant",
+        start_time=timestamps[0],
+        end_time=timestamps[-1],
+        min_score=0.0,
+    )
+    _assert(len(hot_before) == 1, "Hot/cold: anomaly not in hot tier before archival")
+
+    # --- Archive ---
+    archive_started = perf_counter()
+    archived = storage.archive_old_data()
+    archive_ms = _elapsed_ms(archive_started)
+    _assert(archived["anomalies"] == 1, f"Hot/cold: expected 1 archived anomaly, got {archived['anomalies']}")
+
+    # Hot tier should be empty after archival
+    hot_after = storage.hot.query_anomalies(
+        tenant_id="hc-tenant",
+        start_time=timestamps[0],
+        end_time=timestamps[-1],
+        min_score=0.0,
+    )
+    _assert(len(hot_after) == 0, "Hot/cold: anomaly still in hot tier after archival")
+
+    # --- Cold query ---
+    cold_started = perf_counter()
+    cold_results = storage.query_anomalies(
+        tenant_id="hc-tenant",
+        start_time=timestamps[0],
+        end_time=timestamps[-1],
+        min_score=0.0,
+    )
+    cold_ms = _elapsed_ms(cold_started)
+    _assert(len(cold_results) == 1, f"Hot/cold: expected 1 cold result, got {len(cold_results)}")
+    _assert(cold_results[0]["anomaly_score"] == 0.90, "Hot/cold: cold result score mismatch")
+
+    # Verify tier stats
+    tier_stats = storage.get_tier_stats()
+    _assert(tier_stats["cold"]["anomaly_archives"] >= 1, "Hot/cold: no cold archive files found")
+
+    # Cleanup
+    import shutil
+    try:
+        shutil.rmtree(tmp_dir)
+    except OSError:
+        pass
+
+    return {
+        "archive_ms": archive_ms,
+        "cold_query_ms": cold_ms,
+        "archived_anomalies": float(archived["anomalies"]),
+    }
+
+
+def run_auth_api_benchmark() -> Dict[str, float]:
+    """
+    Validate API authentication and authorization:
+      - valid key authenticates and returns correct tenant
+      - anonymous request (no key) is rejected
+      - cross-tenant access is blocked
+      - revoked key is rejected
+    """
+    from backend.api.auth import AuthenticationError, AuthorizationError
+
+    auth = AuthManager()
+
+    # Create keys for two tenants
+    key_a = auth.create_api_key("tenant-alpha", "alpha-key")
+    key_b = auth.create_api_key("tenant-beta", "beta-key")
+
+    _assert(key_a.startswith("ac_"), "Auth: API key does not have expected prefix")
+    _assert(key_b.startswith("ac_"), "Auth: API key does not have expected prefix")
+    _assert(key_a != key_b, "Auth: two keys should be unique")
+
+    # --- Valid authentication ---
+    tenant_a = auth.authenticate(key_a)
+    _assert(tenant_a == "tenant-alpha", f"Auth: expected tenant-alpha, got {tenant_a}")
+
+    tenant_b = auth.authenticate(key_b)
+    _assert(tenant_b == "tenant-beta", f"Auth: expected tenant-beta, got {tenant_b}")
+
+    # --- Anonymous rejection ---
+    try:
+        auth.authenticate("")
+        raise BenchmarkFailure("Auth: empty key should be rejected")
+    except AuthenticationError:
+        pass  # Expected
+
+    try:
+        auth.authenticate("ac_fake_invalid_key_1234567890")
+        raise BenchmarkFailure("Auth: unknown key should be rejected")
+    except AuthenticationError:
+        pass  # Expected
+
+    # --- Cross-tenant blocking ---
+    try:
+        auth.authorize("tenant-alpha", "tenant-beta")
+        raise BenchmarkFailure("Auth: cross-tenant access should be blocked")
+    except AuthorizationError:
+        pass  # Expected
+
+    # Same-tenant should succeed (no exception)
+    auth.authorize("tenant-alpha", "tenant-alpha")
+    auth.authorize("tenant-beta", "tenant-beta")
+
+    # --- Key revocation ---
+    revoked = auth.revoke_key(key_a)
+    _assert(revoked, "Auth: revoke_key should return True for valid key")
+
+    try:
+        auth.authenticate(key_a)
+        raise BenchmarkFailure("Auth: revoked key should be rejected")
+    except AuthenticationError:
+        pass  # Expected
+
+    # key_b should still work
+    still_valid = auth.authenticate(key_b)
+    _assert(still_valid == "tenant-beta", "Auth: unrevoked key should still work")
+
+    # --- Key listing ---
+    keys_list = auth.list_keys()
+    _assert(len(keys_list) == 2, f"Auth: expected 2 registered keys, got {len(keys_list)}")
+
+    return {
+        "checks_passed": 10.0,
+        "keys_created": 2.0,
+    }
+
+
 def parse_args() -> BenchmarkConfig:
     parser = argparse.ArgumentParser(
         description="Run the centralized Phase 1/2/3 benchmark."
@@ -524,6 +842,9 @@ def main() -> int:
         phase2_metrics = run_phase2_ingestion_benchmark()
         control_metrics = run_control_benchmark(config)
         real_metrics = run_realworld_benchmark(config)
+        persist_metrics = run_persistent_storage_benchmark()
+        hotcold_metrics = run_hotcold_storage_benchmark()
+        auth_metrics = run_auth_api_benchmark()
     except BenchmarkFailure as exc:
         print(f"\nBENCHMARK FAILED: {exc}")
         return 1
@@ -557,6 +878,20 @@ def main() -> int:
     print(f"  Load latency: {real_metrics['load_ms']:.1f} ms")
     print(f"  Detect latency: {real_metrics['detect_ms']:.1f} ms")
     print(f"  Query latency: {real_metrics['query_ms']:.1f} ms")
+
+    _print_section("PERSISTENT STORAGE (SQLITE) BENCHMARK")
+    print(f"  Write latency: {persist_metrics['write_ms']:.1f} ms")
+    print(f"  Read latency: {persist_metrics['read_ms']:.1f} ms")
+    print(f"  Persistence check: {persist_metrics['persist_ms']:.1f} ms")
+
+    _print_section("HOT/COLD TIERED STORAGE BENCHMARK")
+    print(f"  Archived anomalies: {int(hotcold_metrics['archived_anomalies'])}")
+    print(f"  Archive latency: {hotcold_metrics['archive_ms']:.1f} ms")
+    print(f"  Cold query latency: {hotcold_metrics['cold_query_ms']:.1f} ms")
+
+    _print_section("AUTH & API BENCHMARK")
+    print(f"  Checks passed: {int(auth_metrics['checks_passed'])}")
+    print(f"  Keys created: {int(auth_metrics['keys_created'])}")
 
     print("\nCENTRALIZED BENCHMARK PASSED")
     return 0
