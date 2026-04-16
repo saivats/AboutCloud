@@ -4,29 +4,55 @@ export default {
   theme: {
     extend: {
       colors: {
+        surface: {
+          DEFAULT: '#0c1324',
+          container: {
+            lowest: '#070d1f',
+            low: '#151b2d',
+            DEFAULT: '#191f31',
+            high: '#23293c',
+            highest: '#2e3447',
+          }
+        },
+        primary: {
+          DEFAULT: '#8aebff',
+          container: '#22d3ee',
+        },
+        tertiary: {
+          DEFAULT: '#ecd3ff',
+        },
+        outline: {
+          variant: '#3c494c',
+        },
         navy: {
-          900: '#0a0e1a',
-          800: '#0f1428',
-          700: '#161d38',
-          600: '#1e2748',
+          900: '#0c1324',
+          800: '#151b2d',
+          700: '#23293c',
+          600: '#2e3447',
         },
         cyan: {
-          400: '#00d4ff',
-          500: '#00b8db',
+          400: '#8aebff',
+          500: '#22d3ee',
         },
         anomaly: {
-          spike: '#ff4444',
-          trend: '#ff6b35',
-          seasonal: '#a855f7',
-          normal: '#00ff88',
+          spike: '#ffb4ab',
+          trend: '#ff8c5a',
+          seasonal: '#ecd3ff',
+          normal: '#a2eeff',
         },
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['Manrope', 'sans-serif'],
         mono: ['JetBrains Mono', 'SF Mono', 'monospace'],
       },
       backdropBlur: {
+        '16': '16px',
         '20': '20px',
+      },
+      boxShadow: {
+        'ambient': '0px 20px 40px rgba(0, 0, 0, 0.4)',
+        'neon': '0 0 12px var(--primary)',
       },
       animation: {
         'pulse-cyan': 'pulse-cyan 2s ease-in-out infinite',
@@ -57,8 +83,8 @@ export default {
           to: { transform: 'rotate(360deg)' },
         },
         'pulse-glow': {
-          '0%, 100%': { boxShadow: '0 0 8px rgba(0, 212, 255, 0.1)' },
-          '50%': { boxShadow: '0 0 20px rgba(0, 212, 255, 0.3), 0 0 40px rgba(0, 212, 255, 0.1)' },
+          '0%, 100%': { boxShadow: '0 0 8px rgba(138, 235, 255, 0.1)' },
+          '50%': { boxShadow: '0 0 20px rgba(138, 235, 255, 0.3), 0 0 40px rgba(138, 235, 255, 0.1)' },
         },
         'pulse-dot': {
           '0%, 100%': { opacity: '1', transform: 'scale(1)' },

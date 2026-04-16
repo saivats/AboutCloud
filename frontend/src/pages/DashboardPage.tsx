@@ -64,9 +64,9 @@ function ClusterHealthCard({ cluster, index, onClick }: { cluster: ClusterHealth
       onClick={onClick}
       className="glass-card glass-card-hover p-6"
     >
-      <div className="flex items-start justify-between mb-5">
+      <div className="flex items-start justify-between mb-6">
         <div className="flex-1 min-w-0">
-          <h3 className="text-white font-semibold text-sm mb-2 truncate font-mono">
+          <h3 className="text-slate-100 font-display tracking-tight font-semibold text-base mb-2 truncate">
             {cluster.cluster_id.slice(0, 12)}...
           </h3>
           <span className={`score-badge ${badgeClass}`}>
@@ -77,10 +77,10 @@ function ClusterHealthCard({ cluster, index, onClick }: { cluster: ClusterHealth
         <HealthRing score={cluster.health_score} size={64} />
       </div>
 
-      <div className="space-y-1.5 mt-4">
-        <p className="text-white/25 text-[10px] uppercase tracking-[0.15em] font-semibold mb-2">Top Anomalous Nodes</p>
+      <div className="space-y-2 mt-5">
+        <p className="text-slate-400 text-[10px] uppercase tracking-widest font-semibold mb-3">Top Anomalous Nodes</p>
         {cluster.top_anomalous_nodes.length === 0 ? (
-          <p className="text-white/15 text-xs italic">No anomalies detected</p>
+          <p className="text-slate-500 text-xs italic">No anomalies detected</p>
         ) : (
           cluster.top_anomalous_nodes.slice(0, 3).map((node, i) => {
             const nodeColor = node.score > 0.7 ? 'text-red-400' : node.score > 0.4 ? 'text-orange-400' : 'text-emerald-400';
@@ -107,7 +107,7 @@ function ClusterHealthCard({ cluster, index, onClick }: { cluster: ClusterHealth
       </div>
 
       {cluster.last_updated && (
-        <p className="text-white/15 text-[9px] mt-4 font-medium">
+        <p className="text-slate-500 text-[10px] mt-5 font-medium">
           Updated {new Date(cluster.last_updated).toLocaleTimeString()}
         </p>
       )}
@@ -130,12 +130,12 @@ function LiveAnomalyFeed() {
   if (loading && anomalies.length === 0) return <FeedSkeleton />;
 
   return (
-    <div className="space-y-2 max-h-[calc(100vh-220px)] overflow-y-auto pr-1">
-      <div className="flex items-center justify-between mb-2">
-        <span className={`live-indicator text-[10px] font-semibold uppercase tracking-wider ${wsConnected ? 'text-emerald-400/80' : 'text-white/25'}`}>
+    <div className="space-y-3 max-h-[calc(100vh-220px)] overflow-y-auto pr-2">
+      <div className="flex items-center justify-between mb-4">
+        <span className={`live-indicator text-[11px] font-bold uppercase tracking-widest ${wsConnected ? 'text-anomaly-normal' : 'text-slate-500'}`}>
           {wsConnected ? 'Live' : 'Polling'}
         </span>
-        <span className="text-white/20 text-[10px] stat-value">{anomalies.length}</span>
+        <span className="text-slate-400 text-xs stat-value">{anomalies.length}</span>
       </div>
 
       {anomalies.length === 0 ? (
@@ -242,45 +242,45 @@ export default function DashboardPage() {
   const criticalClusters = clusters.filter((c) => c.health_score > 0.7).length;
 
   return (
-    <div className="min-h-screen bg-[#06080f] flex">
-      <div className="ambient-glow w-[600px] h-[600px] bg-cyan-400/[0.02] -top-[200px] -left-[200px]" />
-      <div className="ambient-glow w-[500px] h-[500px] bg-purple-500/[0.015] bottom-0 right-0" />
+    <div className="min-h-screen bg-surface flex text-slate-200 font-sans">
+      <div className="ambient-glow w-[600px] h-[600px] bg-primary/[0.04] -top-[200px] -left-[200px]" />
+      <div className="ambient-glow w-[500px] h-[500px] bg-tertiary/[0.04] bottom-0 right-0" />
 
-      <aside className="w-64 border-r border-white/[0.04] p-4 flex flex-col relative z-10 bg-[#06080f]/80 backdrop-blur-xl">
-        <div className="flex items-center gap-3 mb-8 px-2">
+      <aside className="w-72 bg-surface-container-lowest p-6 flex flex-col relative z-10 shadow-ambient">
+        <div className="flex items-center gap-4 mb-10 px-2">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400/20 to-purple-500/20 border border-cyan-400/15 flex items-center justify-center">
             <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
               <circle cx="16" cy="16" r="10" stroke="url(#sb-grad)" strokeWidth="2" strokeDasharray="4 2" />
               <circle cx="16" cy="16" r="4" fill="url(#sb-grad)" />
               <defs>
                 <linearGradient id="sb-grad" x1="6" y1="6" x2="26" y2="26">
-                  <stop stopColor="#00d4ff" />
-                  <stop offset="1" stopColor="#a855f7" />
+                  <stop stopColor="var(--primary)" />
+                  <stop offset="1" stopColor="var(--tertiary)" />
                 </linearGradient>
               </defs>
             </svg>
           </div>
-          <span className="font-bold text-sm gradient-text">AboutCloud</span>
+          <span className="font-display font-bold text-lg tracking-tight gradient-text">AboutCloud</span>
         </div>
 
-        <div className="glass-card p-3 mb-5">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-white/30 text-[9px] uppercase tracking-[0.15em] font-semibold">Overall Health</span>
-            <HealthRing score={overallHealth} size={36} strokeWidth={2.5} />
+        <div className="glass-card bg-surface-container-low p-4 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-slate-400 text-[10px] uppercase tracking-widest font-bold">Overall Health</span>
+            <HealthRing score={overallHealth} size={40} strokeWidth={3} />
           </div>
-          <div className="grid grid-cols-2 gap-2 mt-2">
+          <div className="grid grid-cols-2 gap-3 mt-3">
             <div className="text-center">
-              <p className="stat-value text-white/80 text-sm">{clusters.length}</p>
-              <p className="text-white/25 text-[9px]">Clusters</p>
+              <p className="stat-value text-slate-100 text-base">{clusters.length}</p>
+              <p className="text-slate-400 text-[10px]">Clusters</p>
             </div>
             <div className="text-center">
-              <p className={`stat-value text-sm ${criticalClusters > 0 ? 'text-red-400' : 'text-emerald-400'}`}>{criticalClusters}</p>
-              <p className="text-white/25 text-[9px]">Critical</p>
+              <p className={`stat-value text-base ${criticalClusters > 0 ? 'text-anomaly-spike' : 'text-anomaly-normal'}`}>{criticalClusters}</p>
+              <p className="text-slate-400 text-[10px]">Critical</p>
             </div>
           </div>
         </div>
 
-        <p className="text-white/25 text-[9px] uppercase tracking-[0.15em] font-semibold mb-2 px-2">Clusters</p>
+        <p className="text-slate-400 text-[10px] uppercase tracking-widest font-bold mb-3 px-2">Clusters</p>
         <div className="flex-1 space-y-0.5 overflow-y-auto">
           {clusters.map((cluster) => {
             const dotColor = cluster.health_score > 0.7 ? 'bg-red-400 animate-pulse-dot' : cluster.health_score > 0.4 ? 'bg-orange-400' : 'bg-emerald-400';
@@ -300,12 +300,12 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className="mt-auto pt-4 border-t border-white/[0.04]">
+        <div className="mt-auto pt-6 border-t border-surface-container-low">
           <div className="flex items-center justify-between px-2">
-            <span className="text-white/30 text-xs truncate max-w-[140px]">{tenantName}</span>
+            <span className="text-slate-400 text-xs truncate max-w-[140px] font-medium">{tenantName}</span>
             <button
               onClick={() => { clearAuth(); navigate('/login'); }}
-              className="text-white/25 hover:text-red-400 text-[11px] transition-colors font-medium"
+              className="text-slate-500 hover:text-anomaly-spike text-xs transition-colors font-semibold"
             >
               Logout
             </button>
@@ -314,14 +314,14 @@ export default function DashboardPage() {
       </aside>
 
       <main className="flex-1 flex flex-col overflow-hidden relative z-10">
-        <header className="h-14 border-b border-white/[0.04] flex items-center justify-between px-6 bg-[#06080f]/60 backdrop-blur-md">
-          <div className="flex items-center gap-3">
-            <h1 className="text-white font-semibold text-sm">Dashboard</h1>
+        <header className="h-20 flex items-center justify-between px-10 bg-surface/80 backdrop-blur-md">
+          <div className="flex items-center gap-4">
+            <h1 className="text-slate-100 font-display text-2xl font-semibold tracking-tight">Dashboard</h1>
             {totalAnomalies > 0 && (
               <motion.span
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-400/10 text-cyan-400 border border-cyan-400/15 stat-value"
+                className="text-xs px-3 py-1 rounded-full bg-primary-container/10 text-primary-container font-mono border border-primary-container/20"
               >
                 {totalAnomalies} anomalies
               </motion.span>
@@ -333,16 +333,16 @@ export default function DashboardPage() {
         </header>
 
         <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 p-6 overflow-y-auto space-y-6">
+          <div className="flex-1 p-10 overflow-y-auto space-y-10">
             <ErrorBoundary>
               {insights.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="space-y-3"
+                  className="space-y-4"
                 >
-                  <h2 className="text-white/35 text-[10px] uppercase tracking-[0.15em] font-semibold">Intelligence Insights</h2>
-                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                  <h2 className="text-slate-400 text-xs uppercase tracking-widest font-bold">Intelligence Insights</h2>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                     {insights.map((insight) => (
                       <InsightCard
                         key={insight.cluster_id}
@@ -362,8 +362,8 @@ export default function DashboardPage() {
                 <EmptyState message="No clusters found. Ingest metrics to get started." icon="🔍" />
               ) : (
                 <>
-                  <h2 className="text-white/35 text-[10px] uppercase tracking-[0.15em] font-semibold">Cluster Health</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                  <h2 className="text-slate-400 text-xs uppercase tracking-widest font-bold">Cluster Health</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {clusters.map((cluster, idx) => (
                       <ClusterHealthCard
                         key={cluster.cluster_id}
@@ -378,8 +378,8 @@ export default function DashboardPage() {
             </ErrorBoundary>
           </div>
 
-          <aside className="w-80 border-l border-white/[0.04] p-4 overflow-hidden flex flex-col bg-[#06080f]/40 backdrop-blur-sm">
-            <h2 className="text-white/35 text-[10px] uppercase tracking-[0.15em] font-semibold mb-4">
+          <aside className="w-80 bg-surface-container-low p-6 overflow-hidden flex flex-col shadow-[-20px_0_40px_rgba(0,0,0,0.2)]">
+            <h2 className="text-slate-400 text-xs uppercase tracking-widest font-bold mb-6">
               Anomaly Feed
             </h2>
             <ErrorBoundary>

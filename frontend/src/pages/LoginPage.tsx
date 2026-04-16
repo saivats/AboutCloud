@@ -36,11 +36,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
-      <div className="absolute inset-0 bg-[#06080f]" />
+      <div className="absolute inset-0 bg-surface" />
 
-      <div className="ambient-glow w-[500px] h-[500px] bg-cyan-400/[0.03] top-[10%] left-[15%]" />
-      <div className="ambient-glow w-[400px] h-[400px] bg-purple-500/[0.03] bottom-[15%] right-[10%]" />
-      <div className="ambient-glow w-[300px] h-[300px] bg-emerald-400/[0.02] top-[50%] right-[30%]" />
+      <div className="ambient-glow w-[500px] h-[500px] bg-primary/[0.04] top-[10%] left-[15%]" />
+      <div className="ambient-glow w-[400px] h-[400px] bg-tertiary/[0.04] bottom-[15%] right-[10%]" />
+      <div className="ambient-glow w-[300px] h-[300px] bg-primary-container/[0.03] top-[50%] right-[30%]" />
 
       <div className="absolute inset-0 opacity-[0.015]"
         style={{
@@ -61,7 +61,7 @@ export default function LoginPage() {
               initial={{ scale: 0, rotate: -180 }}
               animate={{ scale: 1, rotate: 0 }}
               transition={{ delay: 0.2, type: 'spring', stiffness: 180, damping: 15 }}
-              className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-cyan-400/15 to-purple-500/15 border border-cyan-400/15 mb-5 relative"
+              className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-primary/10 to-tertiary/10 flex-shrink-0 relative mb-5"
             >
               <div className="absolute inset-0 rounded-3xl animate-pulse-glow" />
               <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
@@ -70,8 +70,8 @@ export default function LoginPage() {
                 <circle cx="18" cy="18" r="4" fill="url(#logo-grad)" />
                 <defs>
                   <linearGradient id="logo-grad" x1="4" y1="4" x2="32" y2="32">
-                    <stop stopColor="#00d4ff" />
-                    <stop offset="1" stopColor="#a855f7" />
+                    <stop stopColor="var(--primary)" />
+                    <stop offset="1" stopColor="var(--tertiary)" />
                   </linearGradient>
                 </defs>
               </svg>
@@ -81,7 +81,7 @@ export default function LoginPage() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.35 }}
-              className="text-3xl font-extrabold gradient-text mb-2"
+              className="text-4xl font-display font-bold tracking-tight gradient-text mb-2"
             >
               AboutCloud
             </motion.h1>
@@ -89,7 +89,7 @@ export default function LoginPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.45 }}
-              className="text-white/35 text-sm font-medium"
+              className="text-slate-400 text-sm font-medium"
             >
               Cloud Anomaly Analytics Platform
             </motion.p>
@@ -103,7 +103,7 @@ export default function LoginPage() {
             transition={{ delay: 0.5 }}
           >
             <div>
-              <label htmlFor="api-key-input" className="block text-[10px] font-semibold text-white/40 mb-2.5 uppercase tracking-[0.15em]">
+              <label htmlFor="api-key-input" className="block text-[10px] font-semibold text-slate-400 mb-2.5 uppercase tracking-widest">
                 API Key
               </label>
               <input
@@ -112,8 +112,8 @@ export default function LoginPage() {
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 placeholder="Enter your API key"
-                className="w-full px-4 py-3.5 bg-white/[0.04] border border-white/[0.08] rounded-xl text-white 
-                           placeholder-white/20 text-sm font-medium transition-all duration-200"
+                className="w-full px-5 py-4 bg-surface-container-high/40 rounded-xl text-slate-200 
+                           placeholder-slate-500 text-sm font-medium transition-all duration-200"
                 autoFocus
               />
             </div>
@@ -146,8 +146,8 @@ export default function LoginPage() {
             transition={{ delay: 0.7 }}
             className="flex items-center justify-center gap-2 mt-8"
           >
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400/50 animate-pulse-dot" />
-            <p className="text-white/20 text-[11px] font-medium">Secure multi-tenant authentication</p>
+            <div className="w-1.5 h-1.5 rounded-full bg-anomaly-normal animate-pulse-dot" />
+            <p className="text-slate-400 text-[11px] font-medium">Secure multi-tenant authentication</p>
           </motion.div>
         </div>
       </motion.div>

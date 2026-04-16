@@ -123,13 +123,13 @@ export default function ClusterPage() {
     return counts;
   }, [anomalies]);
 
-  if (loading) return <div className="min-h-screen bg-[#06080f]"><LoadingSpinner label="Loading cluster data..." /></div>;
+  if (loading) return <div className="min-h-screen bg-surface"><LoadingSpinner label="Loading cluster data..." /></div>;
 
   return (
-    <div className="min-h-screen bg-[#06080f] relative">
-      <div className="ambient-glow w-[400px] h-[400px] bg-cyan-400/[0.015] top-0 right-[20%]" />
+    <div className="min-h-screen bg-surface relative text-slate-200 font-sans">
+      <div className="ambient-glow w-[400px] h-[400px] bg-primary/[0.02] top-0 right-[20%]" />
 
-      <header className="h-14 border-b border-white/[0.04] flex items-center px-6 gap-4 bg-[#06080f]/80 backdrop-blur-md sticky top-0 z-20">
+      <header className="h-16 flex items-center px-8 gap-4 bg-surface/80 backdrop-blur-md sticky top-0 z-20">
         <button
           onClick={() => navigate('/dashboard')}
           className="text-white/35 hover:text-white text-xs transition-colors font-medium flex items-center gap-1"
@@ -137,10 +137,10 @@ export default function ClusterPage() {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
           Dashboard
         </button>
-        <div className="w-px h-5 bg-white/[0.06]" />
+        <div className="w-px h-5 bg-surface-container-high" />
         <div className="flex-1 flex items-center gap-3">
-          <h1 className="text-white font-semibold text-sm">
-            Cluster <span className="font-mono text-cyan-400">{clusterId?.slice(0, 14)}</span>
+          <h1 className="text-slate-100 font-display font-semibold tracking-tight text-lg">
+            Cluster <span className="font-mono text-primary">{clusterId?.slice(0, 14)}</span>
           </h1>
         </div>
         <div className="flex items-center gap-3">
@@ -185,7 +185,7 @@ export default function ClusterPage() {
             transition={{ delay: 0.1 }}
             className="glass-card p-6"
           >
-            <h2 className="text-white/35 text-[10px] uppercase tracking-[0.15em] font-semibold mb-4">Health Timeline</h2>
+            <h2 className="text-slate-400 text-xs uppercase tracking-widest font-bold mb-5">Health Timeline</h2>
             {timelineData.length === 0 ? (
               <EmptyState message="No timeline data" icon="📈" />
             ) : (
@@ -228,19 +228,19 @@ export default function ClusterPage() {
             transition={{ delay: 0.15 }}
             className="glass-card p-6"
           >
-            <h2 className="text-white/35 text-[10px] uppercase tracking-[0.15em] font-semibold mb-4">Node Rankings</h2>
+            <h2 className="text-slate-400 text-xs uppercase tracking-widest font-bold mb-5">Node Rankings</h2>
             {nodes.length === 0 ? (
               <EmptyState message="No node data" icon="🖥️" />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="text-white/25 uppercase tracking-wider text-[10px] border-b border-white/[0.04]">
-                      <th className="text-left py-3 px-3 font-semibold">Rank</th>
-                      <th className="text-left py-3 px-3 font-semibold">Node</th>
-                      <th className="text-center py-3 px-3 font-semibold">Health</th>
-                      <th className="text-right py-3 px-3 font-semibold">Score</th>
-                      <th className="text-right py-3 px-3 font-semibold">Actions</th>
+                    <tr className="text-slate-500 uppercase tracking-widest text-[10px] border-b border-surface-container-lowest">
+                      <th className="text-left py-4 px-3 font-semibold">Rank</th>
+                      <th className="text-left py-4 px-3 font-semibold">Node</th>
+                      <th className="text-center py-4 px-3 font-semibold">Health</th>
+                      <th className="text-right py-4 px-3 font-semibold">Score</th>
+                      <th className="text-right py-4 px-3 font-semibold">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -259,12 +259,12 @@ export default function ClusterPage() {
                           className="table-row-interactive cursor-pointer"
                           onClick={() => navigate(`/nodes/${node.node_id}`)}
                         >
-                          <td className="py-3 px-3 text-white/30 stat-value">#{node.rank}</td>
-                          <td className="py-3 px-3">
+                          <td className="py-4 px-3 text-slate-500 stat-value">#{node.rank}</td>
+                          <td className="py-4 px-3">
                             <div className="flex items-center gap-2">
-                              <span className="text-white/75 font-mono text-[11px]">{node.node_id.slice(0, 14)}</span>
+                              <span className="text-slate-300 font-mono text-[11px]">{node.node_id.slice(0, 14)}</span>
                               {topMetric && (
-                                <span className="text-white/25 text-[10px]">{topMetric.metric_name}</span>
+                                <span className="text-slate-500 text-[10px]">{topMetric.metric_name}</span>
                               )}
                             </div>
                           </td>
